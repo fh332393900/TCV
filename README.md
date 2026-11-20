@@ -1,5 +1,6 @@
 # TCV
 
+```sql
 SELECT
     'Leasing' AS customerType,
     p.poNumber,
@@ -59,3 +60,4 @@ WHERE p.channel = 'BM1'
        OR d.dealerNameCn LIKE CONCAT('%', :dealerName, '%'))
 ORDER BY p.dealerCode
 LIMIT :pageIndex, :pageSize;
+```
