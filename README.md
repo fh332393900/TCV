@@ -55,3 +55,95 @@ WHERE p.channel = 'BM1'
 ORDER BY p.dealerCode
 LIMIT :pageIndex, :pageSize
 ```
+
+```sql
+
+WITH adjustment AS (
+    SELECT
+        s.dealerCode,
+        MAX(s.id) AS latestId,
+        SUM(
+            CASE
+                WHEN COALESCE(s.type, s.type_key) = '2' THEN -1
+                ELSE 1
+            END
+            * ABS(
+                COALESCE(
+                    NULLIF(s.specialFeeAmount, 0),
+                    s.serviceFee,
+                    0
+                )
+            )
+        ) AS specialNet
+    FROM ibdsf_bm1_adjust_special_fee s
+    WHERE s.status = '1'
+      AND (
+          s.poNumber = :poMonth
+          OR (
+              (s.poNumber IS NULL OR s.poNumber = '')
+              AND s.month = CAST(:poMonth AS DECIMAL(25,8))
+          )
+      )
+    GROUP BY s.dealerCode
+)
+
+SELECT
+    'Leasing' AS customerType,
+    p.poNumber,
+    p.dealerCode,
+    d.dealerNameCn AS dealerName,
+
+    COALESCE(p.totalAmount, 0) AS totalServiceFee,
+
+    COALESCE(
+        a.specialNet,
+        p.specialAmount,
+        0
+    ) AS adjustSpecialFee,
+
+    COALESCE(p.totalAmount, 0)
+        + COALESCE(a.specialNet, p.specialAmount, 0) AS actualServiceFee,
+
+    p.paymentStatus,
+    s.type_key AS type,
+
+    CASE s.type_key
+        WHEN '1' THEN 'Add'
+        WHEN '2' THEN 'Subtract'
+        ELSE s.type_key
+    END AS typeName,
+
+    s.id
+
+FROM ibdsf_po_info_list p
+
+INNER JOIN adjustment a
+    ON a.dealerCode = p.dealerCode
+
+LEFT JOIN ibdsf_bm1_adjust_special_fee s
+    ON s.id = a.latestId
+
+LEFT JOIN ibdsf_dealer_basic_info d
+    ON d.dealerCode = p.dealerCode
+   AND d.channel = 'BM1'
+
+WHERE p.channel = 'BM1'
+  AND p.poNumber = :poMonth
+
+  AND (
+      :dealerCode IS NULL
+      OR :dealerCode = ''
+      OR p.dealerCode LIKE CONCAT('%', :dealerCode, '%')
+  )
+
+  AND (
+      :dealerName IS NULL
+      OR :dealerName = ''
+      OR d.dealerNameCn LIKE CONCAT('%', :dealerName, '%')
+  )
+
+ORDER BY p.dealerCode
+
+LIMIT :pageIndex, :pageSize;
+
+```
