@@ -7,7 +7,7 @@ SELECT
     p.dealerCode,
     d.dealerNameCn                    AS dealerName,
     IFNULL(p.totalAmount, 0)          AS totalServiceFee,
-    IFNULL(sf.specialNet, IFNULL(p.specialAmount, 0)) AS adjustSpecialFee,
+    IF(sf.specialNet IS NOT NULL, ABS(sf.specialNet), IFNULL(p.specialAmount, 0)) AS adjustSpecialFee,
     IFNULL(p.totalAmount, 0)
       + IFNULL(sf.specialNet, IFNULL(p.specialAmount, 0)) AS actualServiceFee,
     p.paymentStatus,
